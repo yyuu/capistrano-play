@@ -33,94 +33,91 @@ module Capistrano
         # without this, there are problems with sudo on remote server
         default_run_options[:pty] = true
         
-        namespace :deploy do
-          task :start, :roles => :app, :except => { :no_release => true } do
-            play.start
-          end
+        namespace(:deploy) {
+          task(:start, :roles => :app, :except => { :no_release => true }) {
+            find_and_execute_task("play:start")
+          }
         
-          task :restart, :roles => :app, :except => { :no_release => true } do
-            play.restart
-          end
+          task(:restart, :roles => :app, :except => { :no_release => true }) {
+            find_and_execute_task("play:restart")
+          }
         
-          task :stop, :roles => :app, :except => { :no_release => true } do
-            play.stop
-          end
-        end
+          task(:stop, :roles => :app, :except => { :no_release => true }) {
+            find_and_execute_task("play:stop")
+          }
+        }
         
         after 'deploy:setup', 'play:setup'
         after 'deploy:finalize_update', 'play:update'
         
-        namespace :play do
-          _cset :play_version, '1.2.5'
-          _cset :play_major_version do
+        namespace(:play) {
+          _cset(:play_version, '1.2.5')
+          _cset(:play_major_version) {
             play_version.scan(/\d+/).first.to_i
-          end
-          _cset :play_zip_url do
+          }
+          _cset(:play_zip_url) {
             "http://download.playframework.org/releases/#{File.basename(play_zip_file)}"
-          end
-          _cset :play_preserve_zip, true
-          _cset :play_zip_file do
+          }
+          _cset(:play_preserve_zip, true)
+          _cset(:play_zip_file) {
             File.join(shared_path, 'tools', 'play', "play-#{play_version}.zip")
-          end
-          _cset :play_path do
+          }
+          _cset(:play_path) {
             File.join(shared_path, 'tools', 'play', "play-#{play_version}")
-          end
-          _cset :play_bin do
+          }
+          _cset(:play_bin) {
             File.join(play_path, 'play')
-          end
-          _cset :play_cmd do
+          }
+          _cset(:play_cmd) {
             if fetch(:play_java_home, nil)
               "env JAVA_HOME=#{play_java_home} #{play_bin}"
             else
               play_bin
             end
-          end
-          _cset :play_daemonize_method, :play
-          _cset :play_daemon do
-            daemonize.__send__(play_daemonize_method)
-          end
-          _cset :play_pid_file do
+          }
+          _cset(:play_daemonize_method, :play)
+          _cset(:play_pid_file) {
             fetch(:app_pid, File.join(shared_path, 'pids', 'server.pid')) # for backward compatibility
-          end
-          _cset :play_use_precompile, true # performe precompilation before restarting service if true
+          }
+          _cset(:play_use_precompile, true) # performe precompilation before restarting service if true
         
-          _cset :play_zip_file_local do
+          _cset(:play_zip_file_local) {
             File.join(File.expand_path('.'), 'tools', 'play', "play-#{play_version}.zip")
-          end
-          _cset :play_path_local do
+          }
+          _cset(:play_path_local) {
             File.join(File.expand_path('.'), 'tools', 'play', "play-#{play_version}")
-          end
-          _cset :play_bin_local do
+          }
+          _cset(:play_bin_local) {
             File.join(play_path_local, 'play')
-          end
-          _cset :play_cmd_local do
+          }
+          _cset(:play_cmd_local) {
             if fetch(:play_java_home_local, nil)
               "env JAVA_HOME=#{play_java_home_local} #{play_bin_local}"
             else
               play_bin_local
             end
-          end
-          _cset :play_project_path do
+          }
+          _cset(:play_project_path) {
             release_path
-          end
-          _cset :play_project_path_local do
+          }
+          _cset(:play_project_path_local) {
             File.expand_path('.')
-          end
-          _cset :play_target_path do
+          }
+          _cset(:play_target_path) {
             if play_major_version < 2
               File.join(play_project_path, 'precompiled')
             else
               File.join(play_project_path, 'target')
             end
-          end
-          _cset :play_target_path_local do
+          }
+          _cset(:play_target_path_local) {
             if play_major_version < 2
               File.join(play_project_path_local, 'precompiled')
             else
               File.join(play_project_path_local, 'target')
             end
-          end
-          _cset :play_dependencies_path_map do
+          }
+          _cset(:play_dependencies_path_map) {
             if play_major_version < 2
               {
                 File.join(play_project_path, 'lib')     => File.join(play_project_path_local, 'lib'),
@@ -131,84 +128,84 @@ module Capistrano
                 play_target_path => play_target_path_local,
               }
             end
-          end
-          _cset :play_subcmd_dependencies do
+          }
+          _cset(:play_subcmd_dependencies) {
             if play_major_version < 2
               "dependencies --forProd --sync"
             else
               "dependencies"
             end
-          end
-          _cset :play_subcmd_precompile do
+          }
+          _cset(:play_subcmd_precompile) {
             if play_major_version < 2
               "precompile"
             else
               "compile"
             end
-          end
-          _cset :play_precompile_locally, false # perform precompilation on localhost
+          }
+          _cset(:play_precompile_locally, false) # perform precompilation on localhost
         
-          desc "install play if needed"
-          task :setup do
+          desc("install play if needed")
+          task(:setup) {
             transaction {
               setup_ivy if fetch(:play_setup_ivy, false)
               install
               setup_locally if play_precompile_locally
             }
             transaction {
-              play_daemon.setup
+              find_and_execute_task("play:daemonize:#{play_daemonize_method}:setup") if play_daemonize_method
             }
-          end
+          }
         
-          task :setup_locally do
+          task(:setup_locally) {
             transaction {
               setup_ivy_locally if fetch(:play_setup_ivy_locally, false)
               install_locally
             }
-          end
+          }
         
-          _cset :play_ivy_settings_template, File.join(File.dirname(__FILE__), 'templates', 'ivysettings.erb')
-          _cset :play_ivy_settings do
+          _cset(:play_ivy_settings_template, File.join(File.dirname(__FILE__), 'templates', 'ivysettings.erb'))
+          _cset(:play_ivy_settings) {
             File.join(capture('echo $HOME').chomp, '.ivy2', 'ivysettings.xml')
-          end
-          task :setup_ivy, :roles => :app, :except => { :no_release => true } do
+          }
+          task(:setup_ivy, :roles => :app, :except => { :no_release => true }) {
             tempfile = File.join('/tmp', File.basename(play_ivy_settings))
             on_rollback {
-              run "rm -f #{tempfile}"
+              run("rm -f #{tempfile}")
             }
             template = File.read(play_ivy_settings_template)
             result = ERB.new(template).result(binding)
-            run(<<-EOS)
+            run((<<-EOS).gsub(/\s+/, ' '))
               ( test -d #{File.dirname(play_ivy_settings)} || mkdir -p #{File.dirname(play_ivy_settings)} ) &&
               ( test -f #{play_ivy_settings} && mv -f #{play_ivy_settings} #{play_ivy_settings}.orig; true );
             EOS
             put result, tempfile
-            run "diff #{play_ivy_settings} #{tempfile} || mv -f #{tempfile} #{play_ivy_settings}"
-          end
+            run("diff #{play_ivy_settings} #{tempfile} || mv -f #{tempfile} #{play_ivy_settings}")
+          }
         
-          _cset :play_ivy_settings_local, File.join(ENV['HOME'], '.ivy2', 'ivysettings.xml')
-          task :setup_ivy_locally, :except => { :no_release => true } do
+          _cset(:play_ivy_settings_local, File.join(ENV['HOME'], '.ivy2', 'ivysettings.xml'))
+          task(:setup_ivy_locally, :except => { :no_release => true }) {
             template = File.read(play_ivy_settings_template)
             result = ERB.new(template).result(binding)
-            run_locally(<<-EOS)
+            run_locally((<<-EOS).gsub(/\s+/, ' '))
               ( test -d #{File.dirname(play_ivy_settings_local)} || mkdir -p #{File.dirname(play_ivy_settings_local)} ) &&
               ( test -f #{play_ivy_settings_local} && mv -f #{play_ivy_settings_local} #{play_ivy_settings_local}.orig; true );
             EOS
             File.open(play_ivy_settings_local, 'w') { |fp| fp.write(result) }
-          end
+          }
         
-          task :install, :roles => :app, :except => { :no_release => true } do
+          task(:install, :roles => :app, :except => { :no_release => true }) {
             temp_zip = File.join('/tmp', File.basename(play_zip_file))
             temp_dir = File.join('/tmp', File.basename(play_zip_file, '.zip'))
             on_rollback {
               files = [ play_path, temp_zip, temp_dir ]
               files << play_zip_file unless play_preserve_zip
-              run "#{try_sudo} rm -rf #{files.join(' ')}"
+              run("#{try_sudo} rm -rf #{files.join(' ')}")
             }
-            run "#{try_sudo} rm -f #{play_zip_file}" unless play_preserve_zip
+            run("#{try_sudo} rm -f #{play_zip_file}") unless play_preserve_zip
         
             dirs = [ File.dirname(play_zip_file), File.dirname(play_path) ].uniq()
-            run(<<-EOS)
+            run((<<-EOS).gsub(/\s+/, ' '))
               if ! test -x #{play_bin}; then
                 mkdir -p #{dirs.join(' ')} &&
                 ( test -f #{play_zip_file} || ( wget --no-verbose -O #{temp_zip} #{play_zip_url} && #{try_sudo} mv -f #{temp_zip} #{play_zip_file}; true ) ) &&
@@ -216,16 +213,16 @@ module Capistrano
                 test -x #{play_bin};
               fi;
             EOS
-            run "#{try_sudo} rm -f #{play_zip_file}" unless play_preserve_zip
-          end
-        
-          task :install_locally, :except => { :no_release => true } do
+            run("#{try_sudo} rm -f #{play_zip_file}") unless play_preserve_zip
+          }
+
+          task(:install_locally, :except => { :no_release => true }) {
             on_rollback {
               files = [ play_path_local, play_zip_file_local ]
               run_locally("rm -rf #{files.join(' ')}")
             }
             dirs = [ File.dirname(play_zip_file_local), File.dirname(play_path_local) ].uniq()
-            run_locally(<<-EOS)
+            run_locally((<<-EOS).gsub(/\s+/, ' '))
               if ! test -x #{play_bin_local}; then
                 mkdir -p #{dirs.join(' ')} &&
                 ( test -f #{play_zip_file_local} || ( wget --no-verbose -O #{play_zip_file_local} #{play_zip_url} ) ) &&
@@ -233,93 +230,93 @@ module Capistrano
                 test -x #{play_bin_local};
               fi;
             EOS
-          end
+          }
         
-          namespace :daemonize do
-            namespace :play do
-              task :setup, :roles => :app, :except => { :no_release => true } do
+          namespace(:daemonize) {
+            namespace(:play) {
+              task(:setup, :roles => :app, :except => { :no_release => true }) {
                 # nop
-              end
+              }
         
-              _cset :play_start_options do
+              _cset(:play_start_options) {
                 options = []
                 options << "-Xss2048k"
                 options << "--%prod"
                 options
-              end
-              task :start, :roles => :app, :except => { :no_release => true } do
-                run "rm -f #{play_pid_file}" # FIXME: should check if the pid is active
+              }
+              task(:start, :roles => :app, :except => { :no_release => true }) {
+                run("rm -f #{play_pid_file}") # FIXME: should check if the pid is active
                 play_start_options << "-Dprecompiled=true" if play_use_precompile
-                run "cd #{play_project_path} && nohup #{play_cmd} start --pid_file=#{play_pid_file} #{play_start_options.join(' ')}"
-              end
+                run("cd #{play_project_path} && nohup #{play_cmd} start --pid_file=#{play_pid_file} #{play_start_options.join(' ')}")
+              }
         
-              task :stop, :roles => :app, :except => { :no_release => true } do
-                run "cd #{play_project_path} && #{play_cmd} stop --pid_file=#{play_pid_file}"
-              end
+              task(:stop, :roles => :app, :except => { :no_release => true }) {
+                run("cd #{play_project_path} && #{play_cmd} stop --pid_file=#{play_pid_file}")
+              }
         
-              task :restart, :roles => :app, :except => { :no_release => true } do
+              task(:restart, :roles => :app, :except => { :no_release => true }) {
                 stop
                 start
-              end
+              }
         
-              task :status, :roles => :app, :except => { :no_release => true } do
-                run "cd #{play_project_path} && #{play_cmd} status --pid_file=#{play_pid_file}"
-              end	
-            end
+              task(:status, :roles => :app, :except => { :no_release => true }) {
+                run("cd #{play_project_path} && #{play_cmd} status --pid_file=#{play_pid_file}")
+              }
+            }
         
-            namespace :upstart do
-              _cset :play_upstart_service do
+            namespace(:upstart) {
+              _cset(:play_upstart_service) {
                 application
-              end
-              _cset :play_upstart_config do
+              }
+              _cset(:play_upstart_config) {
                 File.join('/etc', 'init', "#{play_upstart_service}.conf")
-              end
-              _cset :play_upstart_config_template, File.join(File.dirname(__FILE__), 'templates', 'upstart.erb')
-              _cset :play_upstart_options do
+              }
+              _cset(:play_upstart_config_template, File.join(File.dirname(__FILE__), 'templates', 'upstart.erb'))
+              _cset(:play_upstart_options) {
                 options = []
                 options << "-Xss2048k"
                 options << "--%prod"
                 options
-              end
-              _cset :play_upstart_runner do
+              }
+              _cset(:play_upstart_runner) {
                 user
-              end
+              }
         
-              task :setup, :roles => :app, :except => { :no_release => true } do
+              task(:setup, :roles => :app, :except => { :no_release => true }) {
                 tempfile = File.join('/tmp', File.basename(play_upstart_config))
                 on_rollback {
-                  run "rm -f #{tempfile}"
+                  run("rm -f #{tempfile}")
                 }
                 play_upstart_options << "-Dprecompiled=true" if play_use_precompile
                 template = File.read(play_upstart_config_template)
                 result = ERB.new(template).result(binding)
                 put result, tempfile
-                run "diff #{play_upstart_config} #{tempfile} || #{sudo} mv -f #{tempfile} #{play_upstart_config}"
-              end
+                run("diff #{play_upstart_config} #{tempfile} || #{sudo} mv -f #{tempfile} #{play_upstart_config}")
+              }
         
-              task :start, :roles => :app, :except => { :no_release => true } do
-                run "#{sudo} service #{play_upstart_service} start"
-              end
+              task(:start, :roles => :app, :except => { :no_release => true }) {
+                run("#{sudo} service #{play_upstart_service} start")
+              }
         
-              task :stop, :roles => :app, :except => { :no_release => true } do
-                run "#{sudo} service #{play_upstart_service} stop"
-              end
+              task(:stop, :roles => :app, :except => { :no_release => true }) {
+                run("#{sudo} service #{play_upstart_service} stop")
+              }
         
-              task :restart, :roles => :app, :except => { :no_release => true } do
-                run "#{sudo} service #{play_upstart_service} restart || #{sudo} service #{play_upstart_service} start"
-              end
+              task(:restart, :roles => :app, :except => { :no_release => true }) {
+                run("#{sudo} service #{play_upstart_service} restart || #{sudo} service #{play_upstart_service} start")
+              }
         
-              task :status, :roles => :app, :except => { :no_release => true } do
-                run "#{sudo} service #{play_upstart_service} status"
-              end
-            end
-          end
+              task(:status, :roles => :app, :except => { :no_release => true }) {
+                run("#{sudo} service #{play_upstart_service} status")
+              }
+            }
+          }
         
-          desc "update play runtime environment"
-          task :update, :roles => :app, :except => { :no_release => true } do
+          desc("update play runtime environment")
+          task(:update, :roles => :app, :except => { :no_release => true }) {
             if play_major_version < 2
               # FIXME: made tmp/ group writable since deploy:finalize_update creates non-group-writable tmp/
-              run "#{try_sudo} chmod g+w #{play_project_path}/tmp" if fetch(:group_writable, true)
+              run("#{try_sudo} chmod g+w #{play_project_path}/tmp") if fetch(:group_writable, true)
             end
         
             if play_use_precompile
@@ -337,95 +334,97 @@ module Capistrano
             else
               dependencies
             end
-          end
+          }
         
-          task :dependencies, :roles => :app, :except => { :no_release => true } do
-            run "cd #{play_project_path} && #{play_cmd} #{play_subcmd_dependencies}"
-          end
+          task(:dependencies, :roles => :app, :except => { :no_release => true }) {
+            run("cd #{play_project_path} && #{play_cmd} #{play_subcmd_dependencies}")
+          }
         
-          task :dependencies_locally, :roles => :app, :except => { :no_release => true } do
+          task(:dependencies_locally, :roles => :app, :except => { :no_release => true }) {
             if dry_run
               logger.info("resolving play dependencies locally: #{play_project_path_local}")
             else
+              logger.debug("cd #{play_project_path_local} && #{play_cmd_local} #{play_subcmd_dependencies}")
               abort("error on resolving play dependencies.") unless system("cd #{play_project_path_local} && #{play_cmd_local} #{play_subcmd_dependencies}")
             end
-          end
+          }
         
-          task :precompile, :roles => :app, :except => { :no_release => true } do
-            run "cd #{play_project_path} && #{play_cmd} #{play_subcmd_precompile}"
-          end
+          task(:precompile, :roles => :app, :except => { :no_release => true }) {
+            run("cd #{play_project_path} && #{play_cmd} #{play_subcmd_precompile}")
+          }
         
-          task :precompile_locally, :roles => :app, :except => { :no_release => true } do
+          task(:precompile_locally, :roles => :app, :except => { :no_release => true }) {
             on_rollback {
               run_locally("cd #{play_project_path_local} && #{play_cmd_local} clean")
             }
             if dry_run
               logger.info("compiling play application locally: #{play_project_path_local}")
             else
+              logger.debug("cd #{play_project_path_local} && #{play_cmd_local} #{play_subcmd_precompile}")
               abort("error on resolving play dependencies.") unless system("cd #{play_project_path_local} && #{play_cmd_local} #{play_subcmd_precompile}")
             end
-          end
+          }
         
-          task :upload_locally, :roles => :app, :except => { :no_release => true } do
+          task(:upload_locally, :roles => :app, :except => { :no_release => true }) {
             map = play_dependencies_path_map.merge(play_target_path => play_target_path_local)
-            run "mkdir -p #{map.keys.join(' ')}"
+            run("mkdir -p #{map.keys.join(' ')}")
             map.map { |dst, src|
-              run_locally "cd #{File.dirname(src)} && tar chzf #{src}.tar.gz #{File.basename(src)}" unless dry_run
+              run_locally("cd #{File.dirname(src)} && tar chzf #{src}.tar.gz #{File.basename(src)}") unless dry_run
               upload "#{src}.tar.gz", "#{dst}.tar.gz"
-              run "cd #{File.dirname(dst)} && tar xzf #{dst}.tar.gz && rm #{dst}.tar.gz"
+              run("cd #{File.dirname(dst)} && tar xzf #{dst}.tar.gz && rm #{dst}.tar.gz")
             }
-            run "chmod -R g+w #{map.keys.join(' ')}" if fetch(:group_writable, true)
-          end
+            run("chmod -R g+w #{map.keys.join(' ')}") if fetch(:group_writable, true)
+          }
         
-          desc "start play service"
-          task :start, :roles => :app, :except => { :no_release => true } do
-            play_daemon.start
-          end
+          desc("start play service")
+          task(:start, :roles => :app, :except => { :no_release => true }) {
+            find_and_execute_task("play:daemon:#{play_daemonize_method}:start") if play_daemonize_method
+          }
         
-          desc "stop play service"
-          task :stop, :roles => :app, :except => { :no_release => true } do
-            play_daemon.stop
-          end
+          desc("stop play service")
+          task(:stop, :roles => :app, :except => { :no_release => true }) {
+            find_and_execute_task("play:daemon:#{play_daemonize_method}:stop") if play_daemonize_method
+          }
         
-          desc "restart play service"
-          task :restart, :roles => :app, :except => { :no_release => true } do
-            play_daemon.restart
-          end
+          desc("restart play service")
+          task(:restart, :roles => :app, :except => { :no_release => true }) {
+            find_and_execute_task("play:daemon:#{play_daemonize_method}:restart") if play_daemonize_method
+          }
         
-          desc "view play status"
-          task :status, :roles => :app, :except => { :no_release => true } do
-            play_daemon.status
-          end	
+          desc("view play status")
+          task(:status, :roles => :app, :except => { :no_release => true }) {
+            find_and_execute_task("play:daemon:#{play_daemonize_method}:status") if play_daemonize_method
+          }
         
-          desc "view play pid"
-          task :pid, :roles => :app, :except => { :no_release => true } do
-            run "cd #{play_project_path} && #{play_cmd} pid --pid_file=#{play_pid_file}"
-          end
+          desc("view play pid")
+          task(:pid, :roles => :app, :except => { :no_release => true }) {
+            run("cd #{play_project_path} && #{play_cmd} pid --pid_file=#{play_pid_file}")
+          }
         
-          desc "view play version"
-          task :version, :roles => :app, :except => { :no_release => true } do
-            run "cd #{play_project_path} && #{play_cmd} version --pid_file=#{play_pid_file}"
-          end	
+          desc("view play version")
+          task(:version, :roles => :app, :except => { :no_release => true }) {
+            run("cd #{play_project_path} && #{play_cmd} version --pid_file=#{play_pid_file}")
+          }
         
-          desc "view running play apps"
-          task :ps, :roles => :app, :except => { :no_release => true } do
-            run "ps -eaf | grep 'play'"
-          end
+          desc("view running play apps")
+          task(:ps, :roles => :app, :except => { :no_release => true }) {
+            run("ps -eaf | grep 'play'")
+          }
         
-          desc "kill play processes"
-          task :kill, :roles => :app, :except => { :no_release => true } do
-            run "ps -ef | grep 'play' | grep -v 'grep' | awk '{print $2}'| xargs -i kill {} ; echo ''"
-          end
+          desc("kill play processes")
+          task(:kill, :roles => :app, :except => { :no_release => true }) {
+            run("ps -ef | grep 'play' | grep -v 'grep' | awk '{print $2}'| xargs -i kill {} ; echo ''")
+          }
         
-          desc "view logfiles"
-          task :logs, :roles => :app, :except => { :no_release => true } do
-            run "tail -f #{shared_path}/log/#{application}.log" do |channel, stream, data|
+          desc("view logfiles")
+          task(:logs, :roles => :app, :except => { :no_release => true }) {
+            run("tail -f #{shared_path}/log/#{application}.log") do |channel, stream, data|
               puts  # for an extra line break before the host name
               puts "#{channel[:host]}: #{data}"
               break if stream == :err
             end
-          end
-        end
+          }
+        }
       }
     end
   end
