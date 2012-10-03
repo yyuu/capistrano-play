@@ -380,22 +380,22 @@ module Capistrano
         
           desc("start play service")
           task(:start, :roles => :app, :except => { :no_release => true }) {
-            find_and_execute_task("play:daemon:#{play_daemonize_method}:start") if play_daemonize_method
+            find_and_execute_task("play:daemonize:#{play_daemonize_method}:start") if play_daemonize_method
           }
         
           desc("stop play service")
           task(:stop, :roles => :app, :except => { :no_release => true }) {
-            find_and_execute_task("play:daemon:#{play_daemonize_method}:stop") if play_daemonize_method
+            find_and_execute_task("play:daemonize:#{play_daemonize_method}:stop") if play_daemonize_method
           }
         
           desc("restart play service")
           task(:restart, :roles => :app, :except => { :no_release => true }) {
-            find_and_execute_task("play:daemon:#{play_daemonize_method}:restart") if play_daemonize_method
+            find_and_execute_task("play:daemonize:#{play_daemonize_method}:restart") if play_daemonize_method
           }
         
           desc("view play status")
           task(:status, :roles => :app, :except => { :no_release => true }) {
-            find_and_execute_task("play:daemon:#{play_daemonize_method}:status") if play_daemonize_method
+            find_and_execute_task("play:daemonize:#{play_daemonize_method}:status") if play_daemonize_method
           }
         
           desc("view play pid")
