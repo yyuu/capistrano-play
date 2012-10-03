@@ -316,7 +316,7 @@ module Capistrano
           task(:update, :roles => :app, :except => { :no_release => true }) {
             if play_major_version < 2
               # FIXME: made tmp/ group writable since deploy:finalize_update creates non-group-writable tmp/
-              run("#{try_sudo} chmod g+w #{play_project_path}/tmp") if fetch(:group_writable, true)
+              run("mkdir -p #{play_project_path}/tmp; #{try_sudo} chmod g+w #{play_project_path}/tmp") if fetch(:group_writable, true)
             end
         
             if play_use_precompile
@@ -366,14 +366,16 @@ module Capistrano
           }
         
           task(:upload_locally, :roles => :app, :except => { :no_release => true }) {
-            map = play_dependencies_path_map.merge(play_target_path => play_target_path_local)
-            run("mkdir -p #{map.keys.join(' ')}")
-            map.map { |dst, src|
-              run_locally("cd #{File.dirname(src)} && tar chzf #{src}.tar.gz #{File.basename(src)}") unless dry_run
-              upload "#{src}.tar.gz", "#{dst}.tar.gz"
-              run("cd #{File.dirname(dst)} && tar xzf #{dst}.tar.gz && rm #{dst}.tar.gz")
+            play_dependencies_path_map.merge(play_target_path => play_target_path_local).each { |dst, src|
+              begin
+                run_locally("mkdir -p #{src} && cd #{File.dirname(src)} && tar chzf #{src}.tar.gz #{File.basename(src)}") unless dry_run
+                upload "#{src}.tar.gz", "#{dst}.tar.gz"
+                run("mkdir -p #{File.dirname(dst)} && cd #{File.dirname(dst)} && tar xzf #{dst}.tar.gz && rm -f #{dst}.tar.gz")
+                run("chmod -R g+w #{dst}") if fetch(:group_writable, true)
+              ensure
+                run_locally("rm -f #{src}.tar.gz") rescue nil unless dry_run
+              end
             }
-            run("chmod -R g+w #{map.keys.join(' ')}") if fetch(:group_writable, true)
           }
         
           desc("start play service")
